@@ -16,7 +16,7 @@ HOST = os.getenv('HOST')
 USERNAME = os.getenv('USERNAME')
 PASSWORD = os.getenv('PASSWORD')
 OUTPUT_FILE = os.getenv('OUTPUT_FILE', 'metrics.json')  
-VERIFY_SSL = os.getenv('VERIFY_SSL', False) == True  
+VERIFY_SSL = os.getenv('VERIFY_SSL', 'False') == 'True'
 
 def make_api_request(url, username, password, verify_ssl=False, stream=False):
     """
@@ -34,7 +34,7 @@ def make_api_request(url, username, password, verify_ssl=False, stream=False):
     """
     try:
         response = requests.get(url, auth=(username, password), verify=verify_ssl, stream=stream)
-        response.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
+        response.raise_for_status()   
         return response.json()
     except requests.exceptions.HTTPError as e:
         print(f"ERROR: HTTP error for {url}: {e.response.status_code} - {e.response.text}", file=sys.stderr)

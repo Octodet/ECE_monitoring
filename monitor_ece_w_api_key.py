@@ -15,8 +15,7 @@ load_dotenv()
 HOST = os.getenv("HOST")
 API_KEY = os.getenv("API_KEY")
 OUTPUT_FILE = os.getenv("OUTPUT_FILE", "metrics.json")
-VERIFY_SSL = os.getenv("VERIFY_SSL", False) == True
-
+VERIFY_SSL = os.getenv('VERIFY_SSL', 'False') == 'True'
 
 def make_api_request(url, api_key, verify_ssl=False, stream=False):
     """
