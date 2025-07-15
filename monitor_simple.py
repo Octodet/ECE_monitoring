@@ -37,8 +37,6 @@ def print_summary(metrics_data):
         # Deployment summary
         deployments = metrics_data.get("deployments_details", [])
         print(f"\nInspected Deployments: {len(deployments)} found matching filter")
-
-        status_map = {"green": "🟢", "yellow": "🟡", "red": "🔴"}
         for dep in sorted(deployments, key=lambda x: x['name']):
             health_info = dep.get("elasticsearch_cluster_health", {})
             if "error" in health_info:
@@ -46,7 +44,6 @@ def print_summary(metrics_data):
                 status_text = f"Could not fetch health ({health_info.get('details', 'unknown error')})"
             else:
                 status = health_info.get("status", "unknown")
-                status_icon = status_map.get(status, "⚪")
                 relocating = health_info.get('relocating_shards', 0)
                 status_text = f"Status: {status.upper()} | Relocating Shards: {relocating}"
             print(f" - {dep['name']}: {status_icon} {status_text}")
