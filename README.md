@@ -5,6 +5,7 @@ This Python script is designed to collect various operational metrics from your 
 ## The Scripts
 
 ``` monitor_ece.py ``` : Collects metrics from Elastic Cloud using username and password authentication.
+
 ``` monitor_ece_w_api_key.py ``` : Collects metrics from Elastic Cloud using an API key for authentication.
 
 ## Prerequisites
