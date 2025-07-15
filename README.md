@@ -1,6 +1,12 @@
 # Elastic Cloud Metrics Collector
 This Python script is designed to collect various operational metrics from your Elastic Cloud deployments, including platform information, allocator statistics, and detailed Elasticsearch cluster health and stats for each deployment. 
 
+
+## The Scripts
+
+``` monitor_ece.py ``` : Collects metrics from Elastic Cloud using username and password authentication.
+``` monitor_ece_w_api_key.py ``` : Collects metrics from Elastic Cloud using an API key for authentication.
+
 ## Prerequisites
 
 Before running the script, ensure you have the following installed:
