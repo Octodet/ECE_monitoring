@@ -1,5 +1,5 @@
 # Elastic Cloud Metrics Collector
-This Python script is designed to collect various operational metrics from your Elastic Cloud deployments, including platform information, allocator statistics, and detailed Elasticsearch cluster health and stats for each deployment. It's configured to pull sensitive information like host, username, and password directly from a .env file for enhanced security and ease of management.
+This Python script is designed to collect various operational metrics from your Elastic Cloud deployments, including platform information, allocator statistics, and detailed Elasticsearch cluster health and stats for each deployment. 
 
 ## Prerequisites
 
