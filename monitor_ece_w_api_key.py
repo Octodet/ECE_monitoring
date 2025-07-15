@@ -275,7 +275,7 @@ def main():
     # Validate essential environment variables
     if not all([HOST, API_KEY]):
         print(
-            "ERROR: Please ensure either API_KEY or  (HOST, USERNAME, and PASSWORD) are set in your .env file.",
+            "ERROR: Please ensure HOST and API_KEY are set in your .env file.",
             file=sys.stderr,
         )
         sys.exit(1)
