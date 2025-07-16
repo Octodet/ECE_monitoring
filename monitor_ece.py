@@ -5,7 +5,7 @@ import sys
 from dotenv import load_dotenv
 from urllib3.exceptions import InsecureRequestWarning
 
-# Suppress SSL warnings for insecure requests (use with caution))
+# Suppress SSL warnings for insecure requests (use with caution)
 
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
