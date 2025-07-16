@@ -1,5 +1,5 @@
 # Elastic Cloud Enterprise Monitor
-This Python script is designed to collect various operational metrics from your Elastic Cloud Enterprise deployments, including platform information, allocator statistics, and detailed Elasticsearch cluster health and stats for each deployment. 
+This Python script is designed to collect various operational metrics from your Elastic Cloud Enterprise deployments, including platform information, allocator statistics, and detailed Elasticsearch cluster health and stats for each deployment. The collected metrics are saved into a JSON file.
 
 
 ## The Scripts

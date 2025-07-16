@@ -15,7 +15,8 @@ load_dotenv()
 HOST = os.getenv("HOST")
 API_KEY = os.getenv("API_KEY")
 OUTPUT_FILE = os.getenv("OUTPUT_FILE", "metrics.json")
-VERIFY_SSL = os.getenv('VERIFY_SSL', 'False') == 'True'
+VERIFY_SSL = os.getenv("VERIFY_SSL", "False") == "True"
+
 
 def make_api_request(url, api_key, verify_ssl=False, stream=False):
     """
@@ -36,7 +37,7 @@ def make_api_request(url, api_key, verify_ssl=False, stream=False):
             url,
             headers={"Authorization": f"ApiKey {api_key}"},
             verify=verify_ssl,
-            stream=stream
+            stream=stream,
         )
         response.raise_for_status()
         return response.json()
@@ -179,6 +180,46 @@ def print_summary(metrics_data):
     print("                 METRICS SUMMARY")
     print("=" * 50)
 
+    # Platform information
+    platform_info = metrics_data.get("platform_info", {})
+    if platform_info:
+        version = platform_info.get("version", "Unknown")
+        print(f"\n--- Platform Info ---")
+        print(f"  Version: {version}")
+
+        # Check if regions information is available
+        regions = platform_info.get("regions", [])
+        if regions:
+            print(f"  Regions: {len(regions)}")
+            for region in regions:
+                region_id = region.get("region_id", "Unknown")
+                print(f"    - {region_id}")
+
+                # Show runner information if available
+                runners = region.get("runners", {})
+                if runners:
+                    print(
+                        f"      Runners: {runners.get('healthy_runners', 0)}/{runners.get('total_runners', 0)} healthy"
+                    )
+
+                # Show proxy information if available
+                proxies = region.get("proxies", {})
+                if proxies:
+                    print(
+                        f"      Proxies: {proxies.get('proxies_count', 0)} ({proxies.get('healthy', False) and 'Healthy' or 'Unhealthy'})"
+                    )
+
+    # Zone information
+    zones = set()
+    allocators_response = metrics_data.get("allocators", {})
+    if isinstance(allocators_response, dict) and "zones" in allocators_response:
+        for zone in allocators_response["zones"]:
+            zones.add(zone.get("zone_id", "Unknown"))
+
+    print(f"\n--- Zones ({len(zones)} found) ---")
+    for zone in sorted(zones):
+        print(f"  - {zone}")
+
     # Allocator summary
     all_allocators_flat = []
     allocators_response = metrics_data.get("allocators", {})
@@ -208,13 +249,45 @@ def print_summary(metrics_data):
             )
             / 1024
         )
+        # Calculate total storage
+        total_storage_gb = (
+            sum(
+                a["capacity"]["storage"]["total"]
+                for a in all_allocators_flat
+                if "capacity" in a
+                and "storage" in a["capacity"]
+                and "total" in a["capacity"]["storage"]
+            )
+            / 1024
+        )
+        instance_count = sum(len(a.get("instances", [])) for a in all_allocators_flat)
         print(f"\n--- Allocators ({len(all_allocators_flat)} found) ---")
         print(f"  Total Memory Capacity: {total_mem_gb:.2f} GB")
         print(
-            f"  Used Memory Capacity:  {used_mem_gb:.2f} GB ({used_mem_gb/total_mem_gb:.1%})"
+            f"  Used Memory Capacity:  {used_mem_gb:.2f} GB ({used_mem_gb/total_mem_gb:.1%} used)"
             if total_mem_gb > 0
-            else "N/A"
+            else "  Used Memory Capacity: N/A"
         )
+        print(f"  Total Storage: {total_storage_gb:.2f} GB")
+        print(f"  Total Instances: {instance_count}")
+
+        # Show allocator health status
+        healthy_allocators = sum(
+            1 for a in all_allocators_flat if a.get("status", {}).get("healthy", False)
+        )
+        print(f"  Healthy Allocators: {healthy_allocators}/{len(all_allocators_flat)}")
+
+        # Show allocator health status
+        healthy_allocators = sum(
+            1 for a in all_allocators_flat if a.get("status", {}).get("healthy", False)
+        )
+        print(f"  Healthy Allocators: {healthy_allocators}/{len(all_allocators_flat)}")
+
+        # List features available across allocators
+        all_features = set()
+        for allocator in all_allocators_flat:
+            all_features.update(allocator.get("features", []))
+        print(f"  Available Features: {', '.join(sorted(all_features))}")
     else:
         print("\n--- Allocators: Could not retrieve data or no allocators found. ---")
         if isinstance(allocators_response, dict) and "error" in allocators_response:
@@ -228,6 +301,81 @@ def print_summary(metrics_data):
     if not deployments:
         print("  No deployments found or collected.")
     else:
+        # Health status distribution
+        health_status = {"green": 0, "yellow": 0, "red": 0, "error": 0, "unknown": 0}
+        versions = {}
+        memory_total = 0
+        storage_total = 0
+        total_nodes = 0
+        elasticsearch_count = 0
+        kibana_count = 0
+
+        for dep in deployments:
+            health_info = dep.get("elasticsearch_cluster_health", {})
+
+            if "error" in health_info:
+                health_status["error"] += 1
+            else:
+                status = health_info.get("status", "unknown").lower()
+                if status in health_status:
+                    health_status[status] += 1
+                else:
+                    health_status["unknown"] += 1
+
+            # Count resources by type
+            resources = dep.get("details", {}).get("resources", {})
+            if resources:
+                elasticsearch_count += len(resources.get("elasticsearch", []))
+                kibana_count += len(resources.get("kibana", []))
+
+            # Extract version info
+            details = dep.get("details", {})
+            for es in details.get("resources", {}).get("elasticsearch", []):
+                es_info = es.get("info", {})
+                plan_info = (
+                    es_info.get("plan_info", {}).get("current", {}).get("plan", {})
+                )
+                version = plan_info.get("elasticsearch", {}).get("version", "unknown")
+                versions[version] = versions.get(version, 0) + 1
+
+            # Get topology info for memory and storage stats
+            for es in details.get("resources", {}).get("elasticsearch", []):
+                es_info = es.get("info", {})
+                for instance in es_info.get("topology", {}).get("instances", []):
+                    total_nodes += 1
+                    memory_total += instance.get("memory", {}).get(
+                        "instance_capacity", 0
+                    )
+                    storage = instance.get("disk", {})
+                    if storage:
+                        storage_total += storage.get("disk_space_available", 0)
+
+        # Print summary stats
+        print(f"  Status Distribution: ", end="")
+        status_str = []
+        for status, count in health_status.items():
+            if count > 0:
+                status_str.append(f"{status.upper()}: {count}")
+        print(", ".join(status_str))
+
+        # Display versions found
+        print(f"  Elasticsearch Versions: ", end="")
+        version_str = []
+        for version, count in versions.items():
+            version_str.append(f"{version} ({count})")
+        print(", ".join(version_str) if version_str else "None found")
+
+        # Display resource counts
+        print(
+            f"  Resource Counts: {elasticsearch_count} Elasticsearch, {kibana_count} Kibana"
+        )
+
+        # Display memory and storage
+        print(f"  Total Memory Allocated: {memory_total/1024:.2f} GB")
+        print(f"  Total Storage Allocated: {storage_total/1024:.2f} GB")
+        print(f"  Total Nodes: {total_nodes}")
+
+        print("\n--- Deployment Details ---")
         for dep in sorted(deployments, key=lambda x: x.get("name", x["id"])):
             health_info = dep.get("elasticsearch_cluster_health", {})
             status_text = "Status: N/A"
@@ -237,12 +385,38 @@ def print_summary(metrics_data):
             else:
                 status = health_info.get("status", "unknown")
                 relocating = health_info.get("relocating_shards", 0)
-                status_text = (
-                    f"Status: {status.upper()} | Relocating Shards: {relocating}"
-                )
-            # This is the line where the icon was removed
-            print(f"  - {dep.get('name', dep['id'])}: {status_text}")
-    print("\n" + "=" * 50 + "\n")
+                status_text = f"Status: {status.upper()}"
+                if relocating > 0:
+                    status_text += f" | Relocating Shards: {relocating}"
+
+                # Add node count if available
+                node_count = health_info.get("number_of_nodes", 0)
+                if node_count > 0:
+                    status_text += f" | Nodes: {node_count}"
+
+                # Add index count if available
+                index_count = health_info.get("indices", 0)
+                if index_count > 0:
+                    status_text += f" | Indices: {index_count}"
+
+            # Show nodes memory info when available
+            memory_info = ""
+            details = dep.get("details", {})
+            total_memory = 0
+            for es in details.get("resources", {}).get("elasticsearch", []):
+                es_info = es.get("info", {})
+                for instance in es_info.get("topology", {}).get("instances", []):
+                    instance_memory = instance.get("memory", {}).get(
+                        "instance_capacity", 0
+                    )
+                    total_memory += instance_memory
+
+            if total_memory > 0:
+                memory_info = f" | Memory: {total_memory/1024:.1f} GB"
+
+            print(f"  - {dep.get('name', dep['id'])}: {status_text}{memory_info}")
+
+    print("\n" + "=" * 80 + "\n")
 
 
 def save_metrics_to_file(data, output_file):
